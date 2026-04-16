@@ -9,7 +9,12 @@ import TranscriptionPanel from './components/TranscriptionPanel';
 import AudioPanel from './components/AudioPanel';
 import FooterControls from './components/FooterControls';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const API_KEY = process.env.GEMINI_API_KEY ?? '';
+
+function getAI() {
+  if (!API_KEY) throw new Error("Clé GEMINI_API_KEY manquante. Configurez-la dans .env ou les secrets Vercel.");
+  return new GoogleGenAI({ apiKey: API_KEY });
+}
 
 export default function App() {
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -53,7 +58,7 @@ export default function App() {
     try {
       const base64Data = await getBase64(imageFile);
       const mimeType = imageFile.type || 'image/jpeg';
-      const response = await ai.models.generateContent({
+      const response = await getAI().models.generateContent({
         model: 'gemini-2.5-pro-preview-06-05',
         contents: {
           parts: [
