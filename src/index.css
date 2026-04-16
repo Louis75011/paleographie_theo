@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-bg: #f9f7f1;
+  --color-panel: #ffffff;
+  --color-paper: #e8e4d9;
+  --color-ink: #2c2c2c;
+  --color-accent: #c0392b;
+  --color-accent-hover: #962d22;
+  --color-text-dim: #7f8c8d;
+
+  --font-display: Georgia, serif;
+  --font-mono: 'Courier New', Courier, monospace;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
