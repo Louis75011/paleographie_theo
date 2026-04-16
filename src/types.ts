@@ -1,4 +1,4 @@
 export interface AnalysisResult {
-  originalTranscript: string;
-  audioOptimizedTranscript: string;
+    originalTranscript: string;
+    audioOptimizedTranscript: string;
 }
