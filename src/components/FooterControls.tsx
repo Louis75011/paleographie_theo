@@ -29,7 +29,7 @@ export default function FooterControls({
 }: FooterControlsProps) {
     return (
         <footer
-            className="min-h-[100px] bg-panel flex flex-wrap items-center justify-center gap-3 md:gap-6 border-t border-[#e0dcd1] shrink-0 relative py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.02)]"
+            className="min-h-[100px] bg-panel flex flex-wrap items-center justify-center gap-3 md:gap-6 border-t border-[#e0dcd1] shrink-0 sticky bottom-0 z-20 relative py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
             role="toolbar"
             aria-label="Actions principales"
         >

@@ -569,11 +569,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-bg text-ink flex flex-col selection:bg-accent/30 selection:text-ink font-sans">
+    <div className="h-[100dvh] min-h-0 w-full bg-bg text-ink flex flex-col overflow-hidden selection:bg-accent/30 selection:text-ink font-sans">
       <Header hasResult={!!result} />
       <HeroSection />
 
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-[320px_1fr_320px] gap-[1px] bg-[#e0dcd1] overflow-hidden">
+      <main className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[320px_1fr_320px] gap-[1px] bg-[#e0dcd1] overflow-y-auto lg:overflow-hidden pb-[120px] md:pb-[108px] lg:pb-0">
         <InputPanel
           imagePreviewUrl={imagePreviewUrl}
           error={error}

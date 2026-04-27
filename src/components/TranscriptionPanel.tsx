@@ -11,7 +11,7 @@ interface TranscriptionPanelProps {
 export default function TranscriptionPanel({ isProcessing, result }: TranscriptionPanelProps) {
     return (
         <section
-            className="bg-bg p-6 flex flex-col overflow-hidden"
+            className="bg-bg p-6 flex flex-col min-h-[340px] lg:min-h-0 overflow-hidden"
             aria-label="Transcription fidèle du document"
             aria-live="polite"
             aria-busy={isProcessing}

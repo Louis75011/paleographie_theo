@@ -10,7 +10,7 @@ interface AudioPanelProps {
 export default function AudioPanel({ isProcessing, result }: AudioPanelProps) {
     return (
         <section
-            className="bg-bg p-6 flex flex-col overflow-y-auto"
+            className="bg-bg p-6 flex flex-col min-h-[300px] lg:min-h-0 overflow-y-auto"
             aria-label="Texte optimisé pour la lecture audio"
             aria-live="polite"
             aria-busy={isProcessing}

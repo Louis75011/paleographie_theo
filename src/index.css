@@ -11,13 +11,22 @@
   --color-text-dim: #7f8c8d;
 
   --font-display: Georgia, serif;
-  --font-mono: 'Courier New', Courier, monospace;
+  --font-mono: "Courier New", Courier, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
   background-color: var(--color-bg);
   color: var(--color-ink);
-  height: 100vh;
   margin: 0;
   overflow: hidden;
 }

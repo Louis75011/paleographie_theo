@@ -41,7 +41,7 @@ export default function InputPanel({
 
     return (
         <section
-            className="bg-bg p-6 flex flex-col overflow-y-auto"
+            className="bg-bg p-6 flex flex-col min-h-[340px] lg:min-h-0 overflow-y-auto"
             aria-label="Téléversement de l'image"
         >
             <h2 className="font-display text-[13px] uppercase tracking-[1.5px] text-text-dim mb-5 flex items-center gap-[10px] after:content-[''] after:h-[1px] after:bg-[#e0dcd1] after:flex-1">
