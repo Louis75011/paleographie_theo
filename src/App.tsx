@@ -1,7 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
-import type { AnalysisResult, AppSettings, ProviderId } from './types';
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, SYSTEM_INSTRUCTION } from './constants';
+import type { AnalysisResult, AppSettings, ProviderId, TranscriptionHistoryEntry } from './types';
+import {
+  ALLOWED_IMAGE_MIME_TYPES,
+  DEFAULT_SETTINGS,
+  HISTORY_STORAGE_KEY,
+  MAX_HISTORY_ITEMS,
+  MAX_UPLOAD_SIZE_BYTES,
+  SETTINGS_STORAGE_KEY,
+  SYSTEM_INSTRUCTION,
+} from './constants';
 import Header from './components/Header';
 import HeroSection from './components/HeroSection';
 import InputPanel from './components/InputPanel';
@@ -16,7 +24,13 @@ const GPT_ENV_KEY = process.env.OPENAI_API_KEY ?? '';
 type SettingsTab = 'settings' | 'help';
 
 function parseAnalysisResult(raw: string): AnalysisResult {
-  const parsed = JSON.parse(raw) as Partial<AnalysisResult>;
+  let parsed: Partial<AnalysisResult>;
+  try {
+    parsed = JSON.parse(raw) as Partial<AnalysisResult>;
+  } catch {
+    parsed = JSON.parse(extractJsonObject(raw)) as Partial<AnalysisResult>;
+  }
+
   if (!parsed.originalTranscript || !parsed.audioOptimizedTranscript) {
     throw new Error('Reponse JSON incomplete (originalTranscript/audioOptimizedTranscript requis).');
   }
@@ -76,6 +90,50 @@ function estimatedFallbackTokens(result: AnalysisResult): number {
 
 function effectiveApiKey(localKey: string, envKey: string): string {
   return localKey.trim() || envKey.trim();
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function isRetriableError(message: string): boolean {
+  const msg = message.toLowerCase();
+  return (
+    msg.includes('429') ||
+    msg.includes('500') ||
+    msg.includes('502') ||
+    msg.includes('503') ||
+    msg.includes('504') ||
+    msg.includes('network') ||
+    msg.includes('fetch') ||
+    msg.includes('timeout') ||
+    msg.includes('tempor')
+  );
+}
+
+async function withRetry<T>(operation: () => Promise<T>, label: string, maxAttempts = 3): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      const canRetry = attempt < maxAttempts && isRetriableError(message);
+      if (!canRetry) {
+        throw error;
+      }
+
+      const delay = 350 * 2 ** (attempt - 1);
+      console.warn(`${label} tentative ${attempt} echouee, retry dans ${delay}ms`);
+      await sleep(delay);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`${label} a echoue apres retries.`);
 }
 
 function buildProviderOrder(settings: AppSettings): ProviderId[] {
@@ -235,6 +293,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('settings');
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null);
+  const [history, setHistory] = useState<TranscriptionHistoryEntry[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -250,8 +309,25 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as TranscriptionHistoryEntry[];
+      if (Array.isArray(parsed)) {
+        setHistory(parsed);
+      }
+    } catch (storageError) {
+      console.warn('Impossible de charger l\'historique local.', storageError);
+    }
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+  }, [history]);
 
   useEffect(() => {
     const supported =
@@ -276,7 +352,17 @@ export default function App() {
         return;
       }
 
-      if (file.size > 12 * 1024 * 1024) {
+      if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
+        setError('Type image non supporte. Utilisez JPG, PNG, WEBP ou HEIC.');
+        return;
+      }
+
+      if (file.size <= 0) {
+        setError('Fichier vide: veuillez selectionner une image valide.');
+        return;
+      }
+
+      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
         setError('Image trop lourde (max 12 Mo).');
         return;
       }
@@ -334,7 +420,10 @@ export default function App() {
                 attempts.push('gemini: cle manquante');
                 continue;
               }
-              const outcome = await analyzeWithGeminiLocal({ apiKey, imageBase64: base64Data, mimeType });
+              const outcome = await withRetry(
+                () => analyzeWithGeminiLocal({ apiKey, imageBase64: base64Data, mimeType }),
+                'Appel Gemini local',
+              );
               providerResult = outcome.result;
               tokensUsed = outcome.tokensUsed;
             } else {
@@ -343,12 +432,18 @@ export default function App() {
                 attempts.push('gpt: cle manquante');
                 continue;
               }
-              const outcome = await analyzeWithGptLocal({ apiKey, imageBase64: base64Data, mimeType });
+              const outcome = await withRetry(
+                () => analyzeWithGptLocal({ apiKey, imageBase64: base64Data, mimeType }),
+                'Appel GPT local',
+              );
               providerResult = outcome.result;
               tokensUsed = outcome.tokensUsed;
             }
           } else {
-            const outcome = await analyzeWithPreprodBackend({ provider, imageBase64: base64Data, mimeType });
+            const outcome = await withRetry(
+              () => analyzeWithPreprodBackend({ provider, imageBase64: base64Data, mimeType }),
+              `Appel preprod ${provider}`,
+            );
             providerResult = outcome.result;
             tokensUsed = outcome.tokensUsed;
           }
@@ -357,6 +452,19 @@ export default function App() {
           setSettings((prev) => updateRemainingTokens(prev, provider, consumed));
           setActiveProvider(provider);
           setResult(providerResult);
+          setHistory((prev) => {
+            const next: TranscriptionHistoryEntry[] = [
+              {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                createdAt: new Date().toISOString(),
+                provider,
+                imageName: imageFile.name,
+                result: providerResult,
+              },
+              ...prev,
+            ];
+            return next.slice(0, MAX_HISTORY_ITEMS);
+          });
           return;
         } catch (providerError: any) {
           lastError = providerError?.message ?? String(providerError);
@@ -440,6 +548,7 @@ export default function App() {
         isOpen={settingsOpen}
         tab={settingsTab}
         settings={settings}
+        history={history}
         onClose={() => setSettingsOpen(false)}
         onTabChange={setSettingsTab}
         onSettingsChange={(patch) => setSettings((prev) => ({ ...prev, ...patch }))}
@@ -450,6 +559,15 @@ export default function App() {
             gptRemainingTokens: DEFAULT_SETTINGS.gptRemainingTokens,
           }))
         }
+        onRestoreHistory={(entryId) => {
+          const entry = history.find((item) => item.id === entryId);
+          if (!entry) return;
+          setResult(entry.result);
+          setActiveProvider(entry.provider);
+          setError(null);
+          setSettingsOpen(false);
+        }}
+        onClearHistory={() => setHistory([])}
       />
     </div>
   );

@@ -3,6 +3,14 @@ export interface AnalysisResult {
     audioOptimizedTranscript: string;
 }
 
+export interface TranscriptionHistoryEntry {
+    id: string;
+    createdAt: string;
+    provider: ProviderId;
+    imageName: string;
+    result: AnalysisResult;
+}
+
 export type ProviderId = 'gemini' | 'gpt';
 
 export type ProviderStrategy = 'auto' | ProviderId;

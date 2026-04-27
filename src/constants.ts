@@ -15,6 +15,18 @@ Propose ensuite une version optimisée pour la lecture à voix haute (sans abré
 `.trim();
 
 export const SETTINGS_STORAGE_KEY = 'paleographia.settings.v1';
+export const HISTORY_STORAGE_KEY = 'paleographia.history.v1';
+export const MAX_HISTORY_ITEMS = 20;
+
+export const ALLOWED_IMAGE_MIME_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+] as const;
+
+export const MAX_UPLOAD_SIZE_BYTES = 12 * 1024 * 1024;
 
 export const DEFAULT_SETTINGS: AppSettings = {
     runtimeMode: 'local',

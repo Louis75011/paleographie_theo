@@ -42,6 +42,21 @@ Ce document explique comment parametrer l'application directement depuis le bout
 - Apres une analyse, les tokens consommes sont deduits automatiquement.
 - Si la metrique token API n'est pas disponible, l'app applique une estimation conservative.
 
+## Historique local
+
+- Chaque transcription reussie est sauvegardee localement (jusqu'a 20 entrees).
+- Dans Parametres, section Historique local:
+  - Restaurer: recharge une transcription precedente.
+  - Vider: supprime l'historique local.
+
+## Fiabilite reseau (retry/backoff)
+
+- Les appels API appliquent un retry avec backoff exponentiel sur erreurs temporaires:
+  - erreurs reseau/fetch
+  - HTTP 429
+  - HTTP 5xx
+- Si le fallback fournisseur est active, l'app tente aussi l'autre provider apres echec.
+
 ## Commandes pour local + preprod
 
 1. Installer dependances:

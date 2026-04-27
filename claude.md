@@ -93,11 +93,11 @@ Recommandation prioritaire:
 
 ## 8) Incoherences / hygiene technique
 
-- `README.md` semble template AI Studio et ne decrit pas le projet reel en detail.
-- `package.json` contient des dependances potentiellement non utilisees cote app actuelle (`express`, `dotenv`, `motion`).
-- Presence de `package-lock.json` + `pnpm-lock.yaml` (double lockfile).
-- Commentaire d'erreur mentionne Vercel alors que le contexte est Vite/AI Studio.
-- Petit artefact d'encodage visible dans un commentaire de `vite.config.ts`.
+- `README.md` est maintenant aligne sur le projet reel (modes local/preprod, scripts, configuration).
+- `express` et `dotenv` sont utilises cote serveur (`server/index.ts`); `motion` a ete retire car non utilise.
+- Le double lockfile a ete corrige (conservation de `package-lock.json`, suppression de `pnpm-lock.yaml`).
+- La mention Vercel a ete retiree du code applicatif.
+- Le commentaire `vite.config.ts` ne contient plus d'artefact d'encodage.
 
 ## 9) Commandes utiles
 
@@ -108,10 +108,10 @@ Recommandation prioritaire:
 
 ## 10) Risques fonctionnels identifies
 
-- Parsing JSON Gemini fragile si la reponse est invalide/malformee.
-- Pas de validation de taille/type detaillee avant envoi image.
-- Pas de retry/backoff sur erreurs reseau/API.
-- Pas de persistence locale de l'historique des transcriptions.
+- Parsing JSON durci avec extraction de l'objet JSON en fallback et validation des champs requis.
+- Validation upload renforcee: whitelist MIME, taille max et rejet de fichier vide.
+- Retry/backoff implemente sur les appels API (local et preprod).
+- Historique local des transcriptions persiste en `localStorage` et restaurable depuis Parametres.
 
 ## 11) Roadmap conseillee (ordre recommande)
 

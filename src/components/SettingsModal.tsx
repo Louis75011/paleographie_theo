@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppSettings } from '../types';
+import type { AppSettings, TranscriptionHistoryEntry } from '../types';
 
 type SettingsTab = 'settings' | 'help';
 
@@ -11,6 +11,9 @@ interface SettingsModalProps {
     onTabChange: (tab: SettingsTab) => void;
     onSettingsChange: (patch: Partial<AppSettings>) => void;
     onResetTokenBudgets: () => void;
+    history: TranscriptionHistoryEntry[];
+    onRestoreHistory: (entryId: string) => void;
+    onClearHistory: () => void;
 }
 
 export default function SettingsModal({
@@ -21,6 +24,9 @@ export default function SettingsModal({
     onTabChange,
     onSettingsChange,
     onResetTokenBudgets,
+    history,
+    onRestoreHistory,
+    onClearHistory,
 }: SettingsModalProps) {
     if (!isOpen) return null;
 
@@ -210,6 +216,45 @@ export default function SettingsModal({
                             >
                                 Reinitialiser les budgets par defaut
                             </button>
+                        </section>
+
+                        <section className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="font-display text-sm uppercase tracking-[1.5px] text-text-dim">Historique local</h3>
+                                <button
+                                    type="button"
+                                    onClick={onClearHistory}
+                                    className="text-[11px] uppercase tracking-[1.5px] border border-[#ccc] px-3 py-2 hover:bg-black/5"
+                                >
+                                    Vider
+                                </button>
+                            </div>
+
+                            {history.length === 0 && (
+                                <p className="text-xs text-text-dim">Aucune transcription sauvegardee localement.</p>
+                            )}
+
+                            {history.length > 0 && (
+                                <ul className="space-y-2">
+                                    {history.slice(0, 8).map((entry) => (
+                                        <li key={entry.id} className="border border-[#ddd] p-3 text-xs">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="font-mono text-text-dim">
+                                                    {new Date(entry.createdAt).toLocaleString('fr-FR')} - {entry.provider.toUpperCase()}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onRestoreHistory(entry.id)}
+                                                    className="text-[10px] uppercase tracking-[1.5px] border border-[#ccc] px-2 py-1 hover:bg-black/5"
+                                                >
+                                                    Restaurer
+                                                </button>
+                                            </div>
+                                            <p className="mt-1 text-[#333] truncate">{entry.imageName}</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </section>
                     </div>
                 )}
