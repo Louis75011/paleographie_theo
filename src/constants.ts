@@ -1,3 +1,5 @@
+import type { AppSettings } from './types';
+
 export const SYSTEM_INSTRUCTION = `
 Tu es un expert en paléographie numérique et en synthèse vocale. Ta mission est d'assister Théobald dans la numérisation de sa bibliothèque physique.
 
@@ -11,3 +13,16 @@ Format de Sortie :
 Présente d'abord le texte propre et transcrit.
 Propose ensuite une version optimisée pour la lecture à voix haute (sans abréviations, nombres écrits en toutes lettres).
 `.trim();
+
+export const SETTINGS_STORAGE_KEY = 'paleographia.settings.v1';
+
+export const DEFAULT_SETTINGS: AppSettings = {
+    runtimeMode: 'local',
+    providerStrategy: 'auto',
+    geminiApiKey: '',
+    gptApiKey: '',
+    geminiRemainingTokens: 50000,
+    gptRemainingTokens: 50000,
+    minTokensPerCall: 1200,
+    autoFallback: true,
+};

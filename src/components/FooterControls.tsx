@@ -5,9 +5,13 @@ interface FooterControlsProps {
     isProcessing: boolean;
     hasResult: boolean;
     isPlaying: boolean;
+    isSpeechSupported: boolean;
+    activeProviderLabel: string;
     onImport: () => void;
     onProcess: () => void;
     onToggleAudio: () => void;
+    onOpenSettings: () => void;
+    onOpenHelp: () => void;
 }
 
 export default function FooterControls({
@@ -15,13 +19,17 @@ export default function FooterControls({
     isProcessing,
     hasResult,
     isPlaying,
+    isSpeechSupported,
+    activeProviderLabel,
     onImport,
     onProcess,
     onToggleAudio,
+    onOpenSettings,
+    onOpenHelp,
 }: FooterControlsProps) {
     return (
         <footer
-            className="h-[100px] bg-panel flex items-center justify-center gap-10 border-t border-[#e0dcd1] shrink-0 relative shadow-[0_-4px_20px_rgba(0,0,0,0.02)]"
+            className="min-h-[100px] bg-panel flex flex-wrap items-center justify-center gap-3 md:gap-6 border-t border-[#e0dcd1] shrink-0 relative py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.02)]"
             role="toolbar"
             aria-label="Actions principales"
         >
@@ -45,7 +53,7 @@ export default function FooterControls({
 
             <button
                 onClick={onToggleAudio}
-                disabled={!hasResult}
+                disabled={!hasResult || !isSpeechSupported}
                 type="button"
                 aria-label={isPlaying ? 'Arrêter la lecture audio' : 'Écouter le texte optimisé'}
                 aria-pressed={isPlaying}
@@ -55,8 +63,24 @@ export default function FooterControls({
                 {isPlaying ? 'Arrêter' : 'Écouter'}
             </button>
 
+            <button
+                onClick={onOpenSettings}
+                type="button"
+                className="bg-transparent border border-[#ccc] text-ink px-[20px] py-[12px] text-[11px] uppercase tracking-[1.5px] cursor-pointer hover:border-[#aaa] hover:bg-black/5 transition-colors focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+            >
+                Paramètres
+            </button>
+
+            <button
+                onClick={onOpenHelp}
+                type="button"
+                className="bg-transparent border border-[#ccc] text-ink px-[20px] py-[12px] text-[11px] uppercase tracking-[1.5px] cursor-pointer hover:border-[#aaa] hover:bg-black/5 transition-colors focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+            >
+                Aide
+            </button>
+
             <p className="absolute bottom-[20px] left-[40px] text-[10px] text-text-dim font-mono hidden md:block" aria-hidden="true">
-                OCR-ENGINE-B4 // TTS-HD-GEN2 // Paléographia
+                OCR-ENGINE-B4 // TTS-HD-GEN2 // {activeProviderLabel}
             </p>
         </footer>
     );
