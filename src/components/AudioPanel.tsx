@@ -1,6 +1,6 @@
 import React from 'react';
-import ReactMarkdown from 'react-markdown';
 import type { AnalysisResult } from '../types';
+import LazyMarkdown from './LazyMarkdown';
 
 interface AudioPanelProps {
     isProcessing: boolean;
@@ -38,7 +38,7 @@ export default function AudioPanel({ isProcessing, result }: AudioPanelProps) {
                             Texte Lissé &amp; Préparé
                         </span>
                         <div className="text-[13px] leading-[1.5] text-[#333] font-sans prose prose-stone prose-sm max-w-none">
-                            <ReactMarkdown>{result.audioOptimizedTranscript}</ReactMarkdown>
+                            <LazyMarkdown>{result.audioOptimizedTranscript}</LazyMarkdown>
                         </div>
                     </div>
                 )}

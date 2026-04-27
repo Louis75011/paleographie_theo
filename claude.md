@@ -115,12 +115,12 @@ Recommandation prioritaire:
 
 ## 11) Roadmap conseillee (ordre recommande)
 
-1. Securiser la cle (backend proxy Gemini).
-2. Ajouter validation fichier (type, poids, dimensions) + messages UX.
-3. Ajouter gestion robuste des erreurs Gemini (schema guard, fallback).
-4. Implementer vrai drag-and-drop.
-5. Rationaliser dependances et lockfiles.
-6. Mettre a jour README avec architecture et guide d'exploitation.
+1. Securiser la cle (backend proxy Gemini): en place (mode preprod via `server/index.ts` + `/api/analyze`).
+2. Ajouter validation fichier (type, poids, dimensions) + messages UX: en place (MIME whitelist, taille max, fichier vide).
+3. Ajouter gestion robuste des erreurs Gemini (schema guard, fallback): en place (parse durci + fallback JSON + retry/backoff).
+4. Implementer vrai drag-and-drop: a faire.
+5. Rationaliser dependances et lockfiles: en place (`motion` retire, lockfile pnpm retire).
+6. Mettre a jour README avec architecture et guide d'exploitation: en place.
 
 ## 12) Contexte de contenu
 

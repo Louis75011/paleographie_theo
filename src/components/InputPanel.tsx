@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
 
 interface InputPanelProps {
@@ -6,6 +6,7 @@ interface InputPanelProps {
     error: string | null;
     fileInputRef: React.RefObject<HTMLInputElement>;
     onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onFileDrop: (file: File) => void;
 }
 
 export default function InputPanel({
@@ -13,7 +14,31 @@ export default function InputPanel({
     error,
     fileInputRef,
     onFileChange,
+    onFileDrop,
 }: InputPanelProps) {
+    const [isDragActive, setIsDragActive] = useState(false);
+    const [showDroppedBadge, setShowDroppedBadge] = useState(false);
+    const droppedBadgeTimeoutRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (droppedBadgeTimeoutRef.current !== null) {
+                window.clearTimeout(droppedBadgeTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const triggerDroppedBadge = () => {
+        setShowDroppedBadge(true);
+        if (droppedBadgeTimeoutRef.current !== null) {
+            window.clearTimeout(droppedBadgeTimeoutRef.current);
+        }
+        droppedBadgeTimeoutRef.current = window.setTimeout(() => {
+            setShowDroppedBadge(false);
+            droppedBadgeTimeoutRef.current = null;
+        }, 1000);
+    };
+
     return (
         <section
             className="bg-bg p-6 flex flex-col overflow-y-auto"
@@ -27,11 +52,36 @@ export default function InputPanel({
                 role="button"
                 tabIndex={0}
                 aria-label="Cliquer ou glisser une image de page de manuscrit"
-                className={`flex-1 bg-[#f4f1e8] border border-dashed border-[#ccc] flex flex-col items-center justify-center relative min-h-[300px] cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${imagePreviewUrl ? '' : 'hover:border-accent/50 hover:bg-[#eae6db]'
+                className={`flex-1 bg-[#f4f1e8] border border-dashed flex flex-col items-center justify-center relative min-h-[300px] cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${isDragActive ? 'border-accent bg-[#efe8da]' : 'border-[#ccc]'} ${imagePreviewUrl ? '' : 'hover:border-accent/50 hover:bg-[#eae6db]'
                     }`}
                 onClick={() => fileInputRef.current?.click()}
                 onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
+                }}
+                onDragEnter={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDragActive(true);
+                }}
+                onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDragActive(true);
+                }}
+                onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDragActive(false);
+                }}
+                onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDragActive(false);
+                    const dropped = e.dataTransfer.files?.[0];
+                    if (dropped) {
+                        triggerDroppedBadge();
+                        onFileDrop(dropped);
+                    }
                 }}
             >
                 <input
@@ -72,6 +122,12 @@ export default function InputPanel({
                             <div className="h-1 bg-black/10 mb-2"></div>
                         </div>
                         <p className="mt-5 text-text-dim text-[11px] font-mono">CLIQUER OU GLISSER UNE IMAGE</p>
+                    </div>
+                )}
+
+                {showDroppedBadge && (
+                    <div className="absolute top-3 right-3 bg-accent text-white text-[10px] font-mono uppercase tracking-[1px] px-3 py-1 rounded-sm shadow-md">
+                        Fichier depose
                     </div>
                 )}
             </div>

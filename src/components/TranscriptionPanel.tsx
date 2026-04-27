@@ -1,7 +1,7 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
 import type { AnalysisResult } from '../types';
+import LazyMarkdown from './LazyMarkdown';
 
 interface TranscriptionPanelProps {
     isProcessing: boolean;
@@ -35,7 +35,7 @@ export default function TranscriptionPanel({ isProcessing, result }: Transcripti
                             <span>[ DÉCHIFFRAGE EN COURS ]</span>
                         </div>
                     )}
-                    {result && <ReactMarkdown>{result.originalTranscript}</ReactMarkdown>}
+                    {result && <LazyMarkdown>{result.originalTranscript}</LazyMarkdown>}
                 </div>
             </div>
         </section>

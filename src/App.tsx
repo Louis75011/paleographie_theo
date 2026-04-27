@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import type { AnalysisResult, AppSettings, ProviderId, TranscriptionHistoryEntry } from './types';
 import {
@@ -16,7 +16,8 @@ import InputPanel from './components/InputPanel';
 import TranscriptionPanel from './components/TranscriptionPanel';
 import AudioPanel from './components/AudioPanel';
 import FooterControls from './components/FooterControls';
-import SettingsModal from './components/SettingsModal';
+
+const SettingsModal = lazy(() => import('./components/SettingsModal'));
 
 const GEMINI_ENV_KEY = process.env.GEMINI_API_KEY ?? '';
 const GPT_ENV_KEY = process.env.OPENAI_API_KEY ?? '';
@@ -294,6 +295,8 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('settings');
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null);
   const [history, setHistory] = useState<TranscriptionHistoryEntry[]>([]);
+  const [settingsHydrated, setSettingsHydrated] = useState(false);
+  const [historyHydrated, setHistoryHydrated] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -305,6 +308,8 @@ export default function App() {
       setSettings({ ...DEFAULT_SETTINGS, ...parsed });
     } catch (storageError) {
       console.warn('Impossible de charger les parametres depuis localStorage.', storageError);
+    } finally {
+      setSettingsHydrated(true);
     }
   }, []);
 
@@ -318,16 +323,34 @@ export default function App() {
       }
     } catch (storageError) {
       console.warn('Impossible de charger l\'historique local.', storageError);
+    } finally {
+      setHistoryHydrated(true);
     }
   }, []);
 
   useEffect(() => {
+    if (!settingsHydrated) return;
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  }, [settings]);
+  }, [settings, settingsHydrated]);
 
   useEffect(() => {
+    if (!historyHydrated) return;
     localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
-  }, [history]);
+  }, [history, historyHydrated]);
+
+  useEffect(() => {
+    // Prevent browsers from opening dropped files directly in the current tab.
+    const blockBrowserFileDrop = (event: DragEvent) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener('dragover', blockBrowserFileDrop);
+    window.addEventListener('drop', blockBrowserFileDrop);
+    return () => {
+      window.removeEventListener('dragover', blockBrowserFileDrop);
+      window.removeEventListener('drop', blockBrowserFileDrop);
+    };
+  }, []);
 
   useEffect(() => {
     const supported =
@@ -344,34 +367,38 @@ export default function App() {
     };
   }, []);
 
+  const handleSelectedFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setError('Format invalide: veuillez charger une image.');
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
+      setError('Type image non supporte. Utilisez JPG, PNG, WEBP ou HEIC.');
+      return;
+    }
+
+    if (file.size <= 0) {
+      setError('Fichier vide: veuillez selectionner une image valide.');
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      setError('Image trop lourde (max 12 Mo).');
+      return;
+    }
+
+    setImageFile(file);
+    const url = URL.createObjectURL(file);
+    setImagePreviewUrl(url);
+    setResult(null);
+    setError(null);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        setError('Format invalide: veuillez charger une image.');
-        return;
-      }
-
-      if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
-        setError('Type image non supporte. Utilisez JPG, PNG, WEBP ou HEIC.');
-        return;
-      }
-
-      if (file.size <= 0) {
-        setError('Fichier vide: veuillez selectionner une image valide.');
-        return;
-      }
-
-      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
-        setError('Image trop lourde (max 12 Mo).');
-        return;
-      }
-
-      setImageFile(file);
-      const url = URL.createObjectURL(file);
-      setImagePreviewUrl(url);
-      setResult(null);
-      setError(null);
+      handleSelectedFile(file);
     }
   };
 
@@ -519,6 +546,7 @@ export default function App() {
           error={error}
           fileInputRef={fileInputRef}
           onFileChange={handleFileChange}
+          onFileDrop={handleSelectedFile}
         />
         <TranscriptionPanel isProcessing={isProcessing} result={result} />
         <AudioPanel isProcessing={isProcessing} result={result} />
@@ -544,31 +572,41 @@ export default function App() {
         }}
       />
 
-      <SettingsModal
-        isOpen={settingsOpen}
-        tab={settingsTab}
-        settings={settings}
-        history={history}
-        onClose={() => setSettingsOpen(false)}
-        onTabChange={setSettingsTab}
-        onSettingsChange={(patch) => setSettings((prev) => ({ ...prev, ...patch }))}
-        onResetTokenBudgets={() =>
-          setSettings((prev) => ({
-            ...prev,
-            geminiRemainingTokens: DEFAULT_SETTINGS.geminiRemainingTokens,
-            gptRemainingTokens: DEFAULT_SETTINGS.gptRemainingTokens,
-          }))
-        }
-        onRestoreHistory={(entryId) => {
-          const entry = history.find((item) => item.id === entryId);
-          if (!entry) return;
-          setResult(entry.result);
-          setActiveProvider(entry.provider);
-          setError(null);
-          setSettingsOpen(false);
-        }}
-        onClearHistory={() => setHistory([])}
-      />
+      {settingsOpen && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-50 bg-black/35 flex items-center justify-center text-white font-mono text-xs uppercase tracking-[1.5px]">
+              Chargement des parametres...
+            </div>
+          }
+        >
+          <SettingsModal
+            isOpen={settingsOpen}
+            tab={settingsTab}
+            settings={settings}
+            history={history}
+            onClose={() => setSettingsOpen(false)}
+            onTabChange={setSettingsTab}
+            onSettingsChange={(patch) => setSettings((prev) => ({ ...prev, ...patch }))}
+            onResetTokenBudgets={() =>
+              setSettings((prev) => ({
+                ...prev,
+                geminiRemainingTokens: DEFAULT_SETTINGS.geminiRemainingTokens,
+                gptRemainingTokens: DEFAULT_SETTINGS.gptRemainingTokens,
+              }))
+            }
+            onRestoreHistory={(entryId) => {
+              const entry = history.find((item) => item.id === entryId);
+              if (!entry) return;
+              setResult(entry.result);
+              setActiveProvider(entry.provider);
+              setError(null);
+              setSettingsOpen(false);
+            }}
+            onClearHistory={() => setHistory([])}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
