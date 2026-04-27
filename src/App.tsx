@@ -21,6 +21,7 @@ const SettingsModal = lazy(() => import('./components/SettingsModal'));
 
 const GEMINI_ENV_KEY = process.env.GEMINI_API_KEY ?? '';
 const GPT_ENV_KEY = process.env.OPENAI_API_KEY ?? '';
+const GEMINI_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-pro'];
 
 type SettingsTab = 'settings' | 'help';
 
@@ -114,6 +115,11 @@ function isRetriableError(message: string): boolean {
   );
 }
 
+function isModelNotFoundError(message: string): boolean {
+  const msg = message.toLowerCase();
+  return msg.includes('is not found') || msg.includes('not supported for generatecontent') || msg.includes('model');
+}
+
 async function withRetry<T>(operation: () => Promise<T>, label: string, maxAttempts = 3): Promise<T> {
   let lastError: unknown;
 
@@ -160,42 +166,56 @@ async function analyzeWithGeminiLocal(args: {
   mimeType: string;
 }): Promise<{ result: AnalysisResult; tokensUsed: number | null }> {
   const ai = new GoogleGenAI({ apiKey: args.apiKey });
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-pro-preview-06-05',
-    contents: {
-      parts: [
-        { text: 'Transpose et prepare cette page pour lecture audio selon tes instructions.' },
-        { inlineData: { data: args.imageBase64, mimeType: args.mimeType } },
-      ],
-    },
-    config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          originalTranscript: {
-            type: Type.STRING,
-            description: "Le texte brut nettoye fidelement transcrit depuis l'image.",
-          },
-          audioOptimizedTranscript: {
-            type: Type.STRING,
-            description: 'La version optimisee pour la synthese vocale.',
-          },
+  let lastError: unknown = null;
+
+  for (const model of GEMINI_MODEL_CANDIDATES) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: {
+          parts: [
+            { text: 'Transpose et prepare cette page pour lecture audio selon tes instructions.' },
+            { inlineData: { data: args.imageBase64, mimeType: args.mimeType } },
+          ],
         },
-        required: ['originalTranscript', 'audioOptimizedTranscript'],
-      },
-      temperature: 0.2,
-    },
-  });
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              originalTranscript: {
+                type: Type.STRING,
+                description: "Le texte brut nettoye fidelement transcrit depuis l'image.",
+              },
+              audioOptimizedTranscript: {
+                type: Type.STRING,
+                description: 'La version optimisee pour la synthese vocale.',
+              },
+            },
+            required: ['originalTranscript', 'audioOptimizedTranscript'],
+          },
+          temperature: 0.2,
+        },
+      });
 
-  const text = response.text;
-  if (!text) throw new Error('Aucune reponse Gemini.');
+      const text = response.text;
+      if (!text) throw new Error('Aucune reponse Gemini.');
 
-  return {
-    result: parseAnalysisResult(text),
-    tokensUsed: extractGeminiUsedTokens(response),
-  };
+      return {
+        result: parseAnalysisResult(text),
+        tokensUsed: extractGeminiUsedTokens(response),
+      };
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!isModelNotFoundError(message)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Aucun modele Gemini compatible trouve.');
 }
 
 async function analyzeWithGptLocal(args: {
@@ -254,6 +274,8 @@ async function analyzeWithPreprodBackend(args: {
   provider: ProviderId;
   imageBase64: string;
   mimeType: string;
+  geminiApiKey?: string;
+  gptApiKey?: string;
 }): Promise<{ result: AnalysisResult; tokensUsed: number | null }> {
   const response = await fetch('/api/analyze', {
     method: 'POST',
@@ -262,6 +284,10 @@ async function analyzeWithPreprodBackend(args: {
       provider: args.provider,
       imageBase64: args.imageBase64,
       mimeType: args.mimeType,
+      clientKeys: {
+        geminiApiKey: args.geminiApiKey,
+        gptApiKey: args.gptApiKey,
+      },
     }),
   });
 
@@ -468,7 +494,14 @@ export default function App() {
             }
           } else {
             const outcome = await withRetry(
-              () => analyzeWithPreprodBackend({ provider, imageBase64: base64Data, mimeType }),
+              () =>
+                analyzeWithPreprodBackend({
+                  provider,
+                  imageBase64: base64Data,
+                  mimeType,
+                  geminiApiKey: settings.geminiApiKey,
+                  gptApiKey: settings.gptApiKey,
+                }),
               `Appel preprod ${provider}`,
             );
             providerResult = outcome.result;

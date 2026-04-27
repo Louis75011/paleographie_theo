@@ -23,10 +23,12 @@ Ce document explique comment parametrer l'application directement depuis le bout
 
 - Selectionner Mode d'execution: Preprod.
 - L'app envoie les requetes a /api/analyze.
-- Les cles doivent etre configurees cote serveur:
+- Option simple client: vous pouvez aussi saisir les cles dans Parametres, elles seront transmises au backend.
+- Option serveur: garder les cles en variables d'environnement serveur:
   - GEMINI_API_KEY
   - OPENAI_API_KEY
-- Aucune cle n'est necessaire dans le navigateur pour ce mode.
+
+Note: en cas d'erreur modele Gemini introuvable, l'app/backend essaient automatiquement des modeles compatibles (fallback).
 
 ## Strategie Gemini / GPT
 

@@ -8,6 +8,7 @@ dotenv.config();
 
 const app = express();
 const port = Number(process.env.PORT || 8787);
+const GEMINI_MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-pro'];
 
 app.use(express.json({ limit: '20mb' }));
 
@@ -40,50 +41,69 @@ function extractGeminiUsedTokens(response: any): number | null {
     return typeof total === 'number' ? total : null;
 }
 
-async function analyzeWithGemini(imageBase64: string, mimeType: string) {
-    const apiKey = process.env.GEMINI_API_KEY;
+function isModelNotFoundError(message: string): boolean {
+    const msg = message.toLowerCase();
+    return msg.includes('is not found') || msg.includes('not supported for generatecontent') || msg.includes('model');
+}
+
+async function analyzeWithGemini(imageBase64: string, mimeType: string, clientApiKey?: string) {
+    const apiKey = (clientApiKey || process.env.GEMINI_API_KEY || '').trim();
     if (!apiKey) throw new Error('GEMINI_API_KEY manquante cote serveur.');
 
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro-preview-06-05',
-        contents: {
-            parts: [
-                { text: 'Transpose et prepare cette page pour lecture audio selon tes instructions.' },
-                { inlineData: { data: imageBase64, mimeType } },
-            ],
-        },
-        config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            responseMimeType: 'application/json',
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    originalTranscript: {
-                        type: Type.STRING,
-                        description: "Le texte brut nettoye fidelement transcrit depuis l'image.",
-                    },
-                    audioOptimizedTranscript: {
-                        type: Type.STRING,
-                        description: 'La version optimisee pour la synthese vocale.',
-                    },
+    let lastError: unknown = null;
+
+    for (const model of GEMINI_MODEL_CANDIDATES) {
+        try {
+            const response = await ai.models.generateContent({
+                model,
+                contents: {
+                    parts: [
+                        { text: 'Transpose et prepare cette page pour lecture audio selon tes instructions.' },
+                        { inlineData: { data: imageBase64, mimeType } },
+                    ],
                 },
-                required: ['originalTranscript', 'audioOptimizedTranscript'],
-            },
-            temperature: 0.2,
-        },
-    });
+                config: {
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            originalTranscript: {
+                                type: Type.STRING,
+                                description: "Le texte brut nettoye fidelement transcrit depuis l'image.",
+                            },
+                            audioOptimizedTranscript: {
+                                type: Type.STRING,
+                                description: 'La version optimisee pour la synthese vocale.',
+                            },
+                        },
+                        required: ['originalTranscript', 'audioOptimizedTranscript'],
+                    },
+                    temperature: 0.2,
+                },
+            });
 
-    if (!response.text) throw new Error('Gemini a retourne une reponse vide.');
+            if (!response.text) throw new Error('Gemini a retourne une reponse vide.');
 
-    return {
-        result: parseAnalysisResult(response.text),
-        tokensUsed: extractGeminiUsedTokens(response),
-    };
+            return {
+                result: parseAnalysisResult(response.text),
+                tokensUsed: extractGeminiUsedTokens(response),
+            };
+        } catch (error) {
+            lastError = error;
+            const message = error instanceof Error ? error.message : String(error);
+            if (!isModelNotFoundError(message)) {
+                throw error;
+            }
+        }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('Aucun modele Gemini compatible trouve.');
 }
 
-async function analyzeWithGpt(imageBase64: string, mimeType: string) {
-    const apiKey = process.env.OPENAI_API_KEY;
+async function analyzeWithGpt(imageBase64: string, mimeType: string, clientApiKey?: string) {
+    const apiKey = (clientApiKey || process.env.OPENAI_API_KEY || '').trim();
     if (!apiKey) throw new Error('OPENAI_API_KEY manquante cote serveur.');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -139,6 +159,8 @@ app.post('/api/analyze', async (req, res) => {
         const provider = req.body?.provider as ProviderId;
         const imageBase64 = req.body?.imageBase64 as string;
         const mimeType = (req.body?.mimeType as string) || 'image/jpeg';
+        const clientGeminiKey = (req.body?.clientKeys?.geminiApiKey as string | undefined) || undefined;
+        const clientGptKey = (req.body?.clientKeys?.gptApiKey as string | undefined) || undefined;
 
         if (!provider || (provider !== 'gemini' && provider !== 'gpt')) {
             res.status(400).json({ error: 'provider invalide (gemini|gpt attendu).' });
@@ -152,8 +174,8 @@ app.post('/api/analyze', async (req, res) => {
 
         const outcome =
             provider === 'gemini'
-                ? await analyzeWithGemini(imageBase64, mimeType)
-                : await analyzeWithGpt(imageBase64, mimeType);
+                ? await analyzeWithGemini(imageBase64, mimeType, clientGeminiKey)
+                : await analyzeWithGpt(imageBase64, mimeType, clientGptKey);
 
         res.json({
             provider,

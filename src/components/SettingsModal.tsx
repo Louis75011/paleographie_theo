@@ -141,9 +141,9 @@ export default function SettingsModal({
                         </section>
 
                         <section className="space-y-3">
-                            <h3 className="font-display text-sm uppercase tracking-[1.5px] text-text-dim">Cles API (mode local)</h3>
+                            <h3 className="font-display text-sm uppercase tracking-[1.5px] text-text-dim">Cles API (local + preprod simplifie)</h3>
                             <p className="text-xs text-text-dim">
-                                En mode local, les cles sont enregistrees dans localStorage pour ce navigateur uniquement.
+                                Les cles sont enregistrees dans localStorage. En preprod, elles peuvent etre transmises au backend pour eviter une configuration Vercel.
                             </p>
                             <div className="grid grid-cols-1 gap-3">
                                 <label className="text-sm">
